@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Game</title>
+    <title>Game-Up1</title>
     <script type="text/javascript" src="js/phaser.min.js"></script>
 </head>
 <body>
@@ -14,13 +14,22 @@
     var platforms;
     var cursors;
     var stars;
+    var box;
+    var bullets;
+    var bulletTime = 0;
+	var bullet;
+	var fireButton;
+
 
 
 function preload() {
     game.load.image('sky', 'assets/sky.png');
     game.load.image('ground', 'assets/platform.png');
+    game.load.image('bullet', 'assets/bullet.gif');
     game.load.image('star', 'assets/star.png');
     game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+    game.load.image('box', 'assets/box.png');
+    game.load.spritesheet('kaboom', 'assets/explosion.png', 64, 64, 23);
 }
 
 function create() {
@@ -47,6 +56,7 @@ function create() {
     player = game.add.sprite(32, game.world.height - 150, 'dude');
     //  We need to enable physics on the player
     game.physics.arcade.enable(player);
+    player.anchor.setTo(0.5, 0.5);
     //  Player physics properties. Give the little guy a slight bounce.
     player.body.bounce.y = 0.2;
     player.body.gravity.y = 300;
@@ -66,14 +76,52 @@ function create() {
         //  This just gives each star a slightly random bounce value
         star.body.bounce.y = 0.7 + Math.random() * 0.2;
     }
+
+    boxs = game.add.group();
+    boxs.enableBody = true;
+    for (var i = 0; i < 12; i++)
+    {
+        var box = boxs.create(i * 45, 0, 'box');
+        box.body.gravity.y = 1000;
+        player.body.collideWorldBounds = true;
+        game.physics.arcade.enable(box);
+        box.physicsBodyType = Phaser.Physics.ARCADE;
+
+    }
+
+     bullets = game.add.group();
+    bullets.enableBody = true;
+    bullets.physicsBodyType = Phaser.Physics.ARCADE;
+    bullets.createMultiple(1, 'bullet');
+    bullets.setAll('anchor.x', 0.5);
+    bullets.setAll('anchor.y', 1);
+    bullets.setAll('outOfBoundsKill', true);
+    bullets.setAll('checkWorldBounds', true);
+
+
+   	explosions = game.add.group();
+   	 for (var i = 0; i < 10; i++)
+    {
+        var explosionAnimation = explosions.create(0, 0, 'kaboom', [0], false);
+        explosionAnimation.anchor.setTo(0.5, 0.5);
+        explosionAnimation.animations.add('kaboom');
+    }
+
+
     scoreText = game.add.text(16, 16, 'score: 0', { fontSize: '32px', fill: '#000' });
     cursors = game.input.keyboard.createCursorKeys();
+    fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
 }
 
 function update() {
     var hitPlatform = game.physics.arcade.collide(player, platforms);
     game.physics.arcade.collide(stars, platforms);
+    game.physics.arcade.collide(boxs, platforms);
+    game.physics.arcade.collide(boxs, player);
+    
     game.physics.arcade.overlap(player, stars, collectStar, null, this);
+    game.physics.arcade.overlap(bullet, boxs, BoxKill, null, this);
     
      //  Reset the players velocity (movement)
     player.body.velocity.x = 0;
@@ -81,14 +129,14 @@ function update() {
     if (cursors.left.isDown)
     {
         //  Move to the left
-        player.body.velocity.x = -350;
+        player.body.velocity.x = -150;
 
         player.animations.play('left');
     }
     else if (cursors.right.isDown)
     {
         //  Move to the right
-        player.body.velocity.x = 350;
+        player.body.velocity.x = 150;
 
         player.animations.play('right');
     }
@@ -106,6 +154,47 @@ function update() {
         player.body.velocity.y = -350;
     }
 
+
+
+	if (fireButton.isDown)
+    {
+        fireBullet();
+	}
+    
+}
+
+function fireBullet () {
+	
+    if (game.time.now > bulletTime)
+    {
+        bullet = bullets.getFirstExists(false);
+
+        if (bullet)
+        {
+            bullet.reset(player.x, player.y + 8);
+        if (fireButton.isDown && cursors.right.isDown)
+            bullet.body.velocity.x = 400;
+        if (fireButton.isDown && cursors.left.isDown)
+            bullet.body.velocity.x = -400;
+        else{
+        	 bullet.body.velocity.x = 400;
+        	}
+
+            bulletTime = game.time.now + 200;
+        }
+    }
+}
+
+
+
+
+function BoxKill (bullet, boxs) {
+	var explosionAnimation = explosions.getFirstExists(false);
+    explosionAnimation.reset(boxs.x, boxs.y);
+    explosionAnimation.play('kaboom', 30, false, true);
+    boxs.kill();
+    score += 100;
+    scoreText.text = 'Score: ' + score;
 }
 
 function collectStar (player, star) {
